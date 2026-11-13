@@ -45,6 +45,10 @@ ARG VERSION=docker
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     CGO_ENABLED=1 CGO_CFLAGS="-I/opus/include" CGO_LDFLAGS="-L/opus/lib" \
+    go test -tags nativemlow ./internal/app/session
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=1 CGO_CFLAGS="-I/opus/include" CGO_LDFLAGS="-L/opus/lib" \
     go build -trimpath -tags nativemlow \
         -ldflags "-s -w -X main.version=${VERSION} -extldflags '-static'" \
         -o /out/wacalls ./cmd/server

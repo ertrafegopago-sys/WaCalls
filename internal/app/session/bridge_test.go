@@ -23,6 +23,9 @@ func makeBrowserOffer(t *testing.T) (*webrtc.PeerConnection, *webrtc.DataChannel
 	if err != nil {
 		t.Fatal(err)
 	}
+	if _, err := pc.AddTransceiverFromKind(webrtc.RTPCodecTypeAudio, webrtc.RTPTransceiverInit{Direction: webrtc.RTPTransceiverDirectionSendrecv}); err != nil {
+		t.Fatal(err)
+	}
 
 	offer, err := pc.CreateOffer(nil)
 	if err != nil {
@@ -33,6 +36,7 @@ func makeBrowserOffer(t *testing.T) (*webrtc.PeerConnection, *webrtc.DataChannel
 		t.Fatal(err)
 	}
 	<-gather
+	t.Logf("browser offer SDP:\n%s", pc.LocalDescription().SDP)
 	return pc, dc, pc.LocalDescription().SDP
 }
 
@@ -40,7 +44,15 @@ func TestNewBridgeNegotiatesDataChannelOffer(t *testing.T) {
 	pc, _, offer := makeBrowserOffer(t)
 	defer func() { _ = pc.Close() }()
 
-	br, answer, err := NewBridge(webrtc.NewAPI(), offer, slog.Default())
+	enc, err := newRemoteAudioEncoder()
+	if err != nil {
+		t.Fatalf("newRemoteAudioEncoder: %v", err)
+	}
+	if enc == nil {
+		t.Skip("native Opus encoder is only available in the nativemlow build")
+	}
+	defer enc.Close()
+	br, answer, err := newBridge(webrtc.NewAPI(), offer, slog.Default(), enc)
 	if err != nil {
 		t.Fatalf("NewBridge failed: %v", err)
 	}
@@ -49,8 +61,8 @@ func TestNewBridgeNegotiatesDataChannelOffer(t *testing.T) {
 	if answer == "" || !strings.Contains(answer, "m=application") {
 		t.Fatalf("answer missing data channel (application) m-line:\n%s", answer)
 	}
-	if strings.Contains(answer, "m=audio") {
-		t.Fatalf("answer should not negotiate an audio m-line anymore:\n%s", answer)
+	if !strings.Contains(answer, "m=audio") {
+		t.Fatalf("answer missing remote audio m-line:\n%s", answer)
 	}
 }
 

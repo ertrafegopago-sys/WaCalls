@@ -3,6 +3,7 @@ services:
     build:
       context: .
       args:
+        VARIANT: native
         VERSION: ${VERSION:-docker}
     # :latest = production, :develop = beta. Override with WACALLS_IMAGE.
     image: ${WACALLS_IMAGE:-ghcr.io/jotadev66/wacalls:latest}

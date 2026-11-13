@@ -1,6 +1,7 @@
 package session
 
 import (
+	"log/slog"
 	"testing"
 	"time"
 
@@ -50,7 +51,7 @@ func waitForBool(t *testing.T, get func() bool, want bool, timeout time.Duration
 func TestReplayWindowGenerationTokenSurvivesConsecutivePreviews(t *testing.T) {
 	// Generous margins to keep this deterministic under CI scheduling pressure; a flaky
 	// wall-clock test is worse than a slightly slower one.
-	s := &Session{replayWindow: 300 * time.Millisecond}
+	s := &Session{log: slog.Default(), replayWindow: 300 * time.Millisecond}
 
 	s.handleEvent(&waevents.OfflineSyncPreview{}) // gen 1, would-be deadline ~300ms
 	time.Sleep(80 * time.Millisecond)
@@ -70,7 +71,7 @@ func TestReplayWindowGenerationTokenSurvivesConsecutivePreviews(t *testing.T) {
 // Completion path: OfflineSyncCompleted closes the window immediately, without waiting for
 // the backstop.
 func TestReplayWindowClosesOnOfflineSyncCompleted(t *testing.T) {
-	s := &Session{replayWindow: time.Hour}
+	s := &Session{log: slog.Default(), replayWindow: time.Hour}
 
 	s.handleEvent(&waevents.OfflineSyncPreview{})
 	if !s.offlineReplaying.Load() {

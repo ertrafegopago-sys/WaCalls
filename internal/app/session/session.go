@@ -1,6 +1,8 @@
 package session
 
 import (
+	waBinary "go.mau.fi/whatsmeow/binary"
+	"fmt"
 	"context"
 	"log/slog"
 	"os"
@@ -163,6 +165,7 @@ func (s *Session) wireCall(callID string, cm *call.CallManager) {
 
 func (s *Session) handleEvent(rawEvt any) {
 	ctx := context.Background()
+	s.log.Info("wa event received", "type", fmt.Sprintf("%T", rawEvt))
 	switch evt := rawEvt.(type) {
 	case *waevents.Connected:
 		if id := s.client.Store.ID; id != nil {
@@ -196,6 +199,9 @@ func (s *Session) handleEvent(rawEvt any) {
 	case *waevents.CallReject:
 		s.calls.HandleTerminate(wrapCall(evt.From, evt.Data))
 	case *waevents.UnknownCallEvent:
+		if evt.Node.Tag != "" {
+			s.log.Info("unknown call event", "tag", evt.Node.Tag, "attrs", fmt.Sprintf("%v", evt.Node.Attrs), "children", nodeChildrenTags(evt.Node))
+		}
 		if _, ok := evt.Node.GetOptionalChildByTag("mute_v2"); ok {
 			s.calls.HandleMute(evt.Node)
 		}
@@ -375,4 +381,19 @@ func mapStatus(state core.CallState) events.CallStatus {
 	default:
 		return events.StatusRinging
 	}
+}
+
+func nodeChildrenTags(n *waBinary.Node) string {
+	if n.Content == nil {
+		return "(no-content)"
+	}
+	children, ok := n.Content.([]waBinary.Node)
+	if !ok {
+		return fmt.Sprintf("content=%T", n.Content)
+	}
+	tags := make([]string, 0, len(children))
+	for _, child := range children {
+		tags = append(tags, child.Tag)
+	}
+	return fmt.Sprintf("%v", tags)
 }
